@@ -2,9 +2,11 @@
 #include <stdlib.h>
 #include <math.h>
 #define M_E  2.71828182845904523536
-#define Alpha 0.001
+#define Alpha 0.01
 #define Xrow 100
+#define Testrow 20
 #define MINI 1e-12
+#define LOOP 30000 //when reach min mean_loss (LOOP=40000),overfitting!
 
 
 // 生成指定范围内的随机浮点数
@@ -38,16 +40,46 @@ void generate_watermelon_data(float x[][3], int y[], int size) {
 }
 
 // 打印数据集
-void print_watermelon_data(float x[][3], int y[], int size) {
-    printf("编号\t截距\t密度\t\t含糖量\t\t标签\n");
-    printf("----------------------------------------------------\n");
-    for (int i = 0; i < size; i++) {
-        printf("%d\t%.0f\t%.3f\t\t%.3f\t\t%d\n", 
+void print_watermelon_data(float x[][3], int y[],int y_test[], int size) {
+    if (y==NULL){
+        printf("编号\t截距\t密度\t\t含糖量\t\t标签\n");
+        printf("----------------------------------------------------\n");
+        for (int i = 0; i < size; i++) {
+            printf("%d\t%.0f\t%.3f\t\t%.3f\n", 
+               i + 1, 
+               x[i][0],  // 截距项，总是1
+               x[i][1],  // 密度
+               x[i][2]  // 含糖量
+                );    // 标签(空)
+        }
+
+    }else if (y!=NULL &&y_test==NULL){
+        printf("编号\t截距\t密度\t\t含糖量\t\t标签\n");
+        printf("----------------------------------------------------\n");
+        for (int i = 0; i < size; i++) {
+            printf("%d\t%.0f\t%.3f\t\t%.3f\t\t%d\n", 
                i + 1, 
                x[i][0],  // 截距项，总是1
                x[i][1],  // 密度
                x[i][2],  // 含糖量
                y[i]);    // 标签
+        }
+    }else if(y!=NULL &&y_test!=NULL){
+        printf("编号\t截距\t密度\t\t含糖量\t\t标签\t\t预测标签\tRight Or Wrong\n");
+        printf("------------------------------------------------------------------------\n");
+        for (int i = 0; i < size; i++) {
+            printf("%d\t%.0f\t%.3f\t\t%.3f\t\t%d\t\t%d", 
+               i + 1, 
+               x[i][0],  // 截距项，总是1
+               x[i][1],  // 密度
+               x[i][2],  // 含糖量
+               y[i],    // 标签
+               y_test[i]);  //preduction
+            if (y[i]!=y_test[i]){
+                printf("\t\twrong");
+            }
+            printf("\n");
+        }
     }
 }
 
@@ -89,21 +121,64 @@ double *multied_XYp(float x[][3],int xsize,int y[],double p_1[]){
 
 }
 
-int main(){
+void predict (float x_test[][3],double w[],int prediction[],int testsize){
+    double tem,pre;
+    for (int i=0;i<testsize;i++){
+        tem=0.;
+        pre=0.;
+        for (int j=0;j<3;j++){
+            tem+=x_test[i][j]*w[j];
+        }
+        pre+=1/(1+pow(M_E,-tem));
+        if (pre>0.5)prediction[i]=1;
+        else prediction[i]=0;
+    }
+}
 
-    srand(42);
+int main(){
+    char input;
+    int user_prediction[5];
+    char s;
+    printf("这是一个通过西瓜密度和含糖量预测西瓜是否成熟的线性分类器\n");
+    printf("请输入任意字符开始：");
+    scanf("%s",&s);
+
+    
+//set data
+    srand(42);                       
     
     // 创建特征矩阵x和标签向量y
     float X[Xrow][3];  // 100×3矩阵，第一列是截距1
     int y[Xrow];       // 100个标签
     
+    float X_test[Testrow][3];
+    int y_test[Testrow];
+
     // 生成数据
-    generate_watermelon_data(X, y, Xrow);
-    
+    generate_watermelon_data(X, y, Xrow);//train
+    generate_watermelon_data(X_test,y_test,Testrow);//test
+
     // 打印前20个样本
-    printf("西瓜数据集 (前20个样本):\n");
-    print_watermelon_data(X, y, 20);
+    printf("西瓜数据训练集 （1代表熟瓜，0代表生瓜）:\n");
+    print_watermelon_data(X, y,NULL, 10);
+    printf("西瓜数据预测集：");
+    print_watermelon_data(X_test,NULL,NULL,5);
+
+    printf("你想和计算机比一下吗？（输入P开始比较，输入其余字符则放弃）\n");
+    scanf("%s",&input);
+    if (input =='p' ||input =='P'){
+        printf("观察上面那个数据集，总结规律，给出你对预测集的判断：");
+        
+        for (int i=0;i<5;i++){
+            scanf("%d",&user_prediction[i]);
+        }
+        printf(" \n我记住你的答案了。但是固然你很厉害，而我有100个数据\n");
+    }else{
+        printf("haha,放弃是对的,我其实有100个数据\n");
+    }
+
     
+    printf("这是训练集的全貌（虽然100个也很少了）：\n");   
     // 统计熟瓜和生瓜的数量
     int ripe_count = 0, unripe_count = 0;
     for (int i = 0; i < Xrow; i++) {
@@ -124,8 +199,10 @@ int main(){
     printf("x: %d*%d 矩阵\n", Xrow, 3);
     printf("y: %d 维向量\n\n", Xrow);
 
+    printf("请输入任意字符，我要开始了\n");
+    scanf("%s",&s);
 
-    
+//begin to train
 
     double w0[3]={0.5,0.5,0.5};
 
@@ -146,8 +223,8 @@ int main(){
 
     }
     free(mult_w0X);
-//start train
-    for (int loop=0;loop<10000;loop++){
+
+    for (int loop=0;loop<LOOP;loop++){
         delta_w=multied_XYp(X,Xrow,y,p_1);
         for (int i=0;i<3;i++){
             w0[i]=w0[i]+delta_w[i];
@@ -163,17 +240,62 @@ int main(){
         }
         free(mult_w0X);
 
-        if (loop%1000==0){
+        if (loop%(LOOP/10)==0){
             loss=get_loss(y,Xrow,p_1);
             mean_loss+=loss;
-            printf("loop %d ,loss %f,mean loss %f\n",loop,loss,mean_loss/((float)(loop/1000)+1));
+            printf("loop %d ,loss %f,mean loss %f\n",loop,loss,mean_loss/((float)(loop/(LOOP/10))+1));
         }
     }    
+    
+    printf("\n学得参数:\n");
+    for (int i=0;i<3;i++){
+        printf("%f ",w0[i]); 
+    }
+    printf("\n");
 
-    for (int i=0;i<3;i++)printf("%f ",w0[i]);
+//test
+    int prediction_y[Testrow];
+    double smError=0.;
+    // 打印测试集
+    printf("西瓜数据测试集(20个) :\n");
+    print_watermelon_data(X_test, y_test,NULL, Testrow);
+    
+    predict(X_test,w0,prediction_y,Testrow);
 
-    //test , use 20 datas 
+    printf("西瓜数据测试集预测结果:\n");
+    print_watermelon_data(X_test, y_test,prediction_y, Testrow);
+    
     //square mean error
+    for (int i=0;i<Testrow;i++){
+        smError+=pow(y_test[i]-prediction_y[i],2);
+    }
+    printf("均方误差：%.6f",smError/Testrow);
+    // 计算准确率
+    int correct = 0;
+    for (int i = 0; i < Testrow; i++) {
+        if (y_test[i] == prediction_y[i]) {
+            correct++;
+        }
+    }
+    printf("\n准确率: %.2f%% (%d/%d)\n", (float)correct/Testrow*100, correct, Testrow);
+
+    int score=0;
+    if (input=='P'||input =='p'){
+        printf("还记得你的预测吗？");
+        for (int i=0;i<5;i++){
+            printf("  %d:",user_prediction[i]);
+            if (y_test[i]==user_prediction[i]){
+                score+=1;
+                printf("right");
+            }
+            else printf("wrong");
+        }
+        printf("\nyour scores:%d\n",score);
+        printf("真厉害呀，你得了%d分\n",score);
+        
+    }
+
+    printf("不过，虽然我用了100个数据，但是我做了20个预测");
 
     return 0;
 
